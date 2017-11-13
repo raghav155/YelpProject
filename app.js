@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const passport = require('passport');
 const methodOverride = require('method-override');
 const rs = require('./Models/Restaurant.js');
+const uid = require('uid');
 const User = require('./Models/User.js');
 const Review = require('./Models/Reviews');
 const bodyParser = require('body-parser');
@@ -13,6 +14,8 @@ const GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 const cookieParser = require('cookie-parser');
 const flash = require('connect-flash');
 var multer = require('multer');
+var users = [];
+var usernum = 0;
 var storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, './public/images/uploads')
@@ -48,6 +51,8 @@ function checkFileType(file,cb) {
 }
 const expresssession = require('express-session');
 const app = express();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
 
 app.set("view engine", "ejs");
 //require('./config/passport.js')(passport);
@@ -112,6 +117,7 @@ passport.use('local-signup',new LocalStrategy({  //signup Strategy
                     newUser.ReviewsSecUser = [];
                     newUser.joinedDate = new Date().toDateString();
                     newUser.photos = 0;
+                    newUser.chatuid = uid();
                     // console.log(newUser);
                     // console.log('hiii');
 
@@ -200,6 +206,8 @@ passport.use(new FacebookStrategy({
                 newUser.ReviewsSecUser = [];
                 newUser.joinedDate = new Date().toDateString();
                 newUser.photos = 0;
+                newUser.userimage = "";
+                newUser.chatuid = uid();
 
                 // newUser.facebook.email = profile.emails[0].value;
                 //console.log(profile);
@@ -253,6 +261,7 @@ passport.use(new GoogleStrategy({
                 newUser.userimage = profile._json.image.url;
                 newUser.joinedDate = new Date().toDateString();
                 newUser.photos = 0;
+                newUser.chatuid = uid();
 
                 // save the user
                 newUser.save(function(err) {
@@ -288,7 +297,8 @@ app.get('/',function (req,res) {
             console.log(err);
         }else{
             //console.log(data[0]._id);
-            console.log(req.user)
+            //console.log(req.user)
+
             res.render('index',{data : data,user : req.user});
         }
     })
@@ -396,17 +406,41 @@ app.post('/profile',isLoggedIn,function (req,res) {
             res.render('profile',{msg : err,user : req.user})
         }else{
             //console.log(req.user);
-            User.findById(req.user._id,function (err,user) {
-                if(err){
-                    throw err;
-                }else{
+
                     if(req.file != undefined) {
-                        user.userimage = req.file.filename;
-                        user.save();
+                        console.log(req.file.filename)
+                        let pr = new Promise(function (resolve,reject) {
+                            req.user.userimage = req.file.filename;
+                            req.user.save();
+                            resolve();
+                        }).then(function () {
+                            Review.find({},function(err,rev){
+
+                                rev.forEach(function(val){
+                                    // console.log(val)
+                                    //  console.log(req.user._id)
+                                    //  console.log(val.Author.id)
+                                    console.log(req.user)
+                                    if(req.user._id.equals(val.Author.id)){
+
+                                        val.Author.image = req.user.userimage;
+                                        val.save();
+
+                                    }
+
+                                })
+                                res.redirect('/profile')
+                            })
+                        }).catch(function () {
+                            console.log('error uploading photo')
+                        })
+
+                    }else{
+                        res.redirect('/profile')
                     }
-                    res.redirect('/profile');
-                }
-            })
+
+
+
         }
     })
 })
@@ -453,6 +487,7 @@ app.post('/biz/:id/newreview',isLoggedIn,function (req,res) {
         if(err){
             console.log(err);
         }else{
+            console.log(req.user)
             let rsreviews = rs.reviews;
             rsreviews++;
             rs.reviews = rsreviews;
@@ -465,7 +500,8 @@ app.post('/biz/:id/newreview',isLoggedIn,function (req,res) {
             rev.Author.id = req.user._id;
             rev.Author.image = req.user.userimage;
             rev.ratings = parseInt(req.body.rating);
-            console.log(req.body.rating);
+            rev.revlikeMap = [];
+            //console.log(req.body.rating);
 
             if(req.user.local.firstName) {
                 rev.Author.username = req.user.local.firstName + " " + req.user.local.lastName;
@@ -474,7 +510,7 @@ app.post('/biz/:id/newreview',isLoggedIn,function (req,res) {
             }else if(req.user.facebook.name){
 
                 rev.Author.username = req.user.facebook.name;
-                rev.Author.islocal = false;
+                rev.Author.islocal = true;
             }else{
                 rev.Author.username = req.user.google.name;
                 rev.Author.islocal = false;
@@ -562,18 +598,20 @@ app.post('/biz/:id/editrev',IsAuthenticatedReview,function (req,res) {
 
 //delete review
 
-app.post('/biz/:id/:id2/deleterev',IsAuthenticatedReview,function (req,res) {
+app.post('/biz/:id/:iid/deleterev',IsAuthenticatedReview,function (req,res) {
     Review.findByIdAndRemove(req.params.id,function (err) {
         if(err){
+            console.log('hiiiiiiiiiiiiiiiiiiiiiii')
             console.log(err);
         }else{
 
             // reduce reviewnum on  rs and reduce user reviews
-            rs.findById(req.params.id2,function (err2,ress) {
+            rs.findById(req.params.iid,function (err2,ress) {
                 if(err2){
                     throw err2;
                 }else{
-                    console.log(ress)
+                    console.log('hiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii');
+                    //console.log(ress)
                     let r = ress.reviews;
                     r--;
                     ress.reviews = r;
@@ -596,6 +634,115 @@ app.post('/biz/:id/:id2/deleterev',IsAuthenticatedReview,function (req,res) {
     })
 })
 
+app.get('/talk',function (req,res) {
+    if(req.user == undefined){
+        res.render('login',{message : "You need to login first"})
+    }else {
+        res.render('talk', {user: req.user});
+       // console.log('startfromhere')
+
+    }
+})
+
+io.on('connection',function (socket) {
+    console.log(socket.handshake.query)
+    var curuser = socket.handshake.query.user;
+    var userimage = socket.handshake.query.userimage;
+   
+    console.log('a new user connected');
+    if(curuser) {
+        users[socket.id] = curuser;
+    }
+        usernum++;
+    console.log(usernum)
+    console.log(users)
+    //console.log(usernum)
+    socket.emit('initial',{
+        usernum : usernum,
+        username : users[socket.id]
+    });
+    socket.broadcast.emit('connected',{
+        username : users[socket.id],
+        usernum : usernum,
+        userimage : userimage,
+
+    })
+
+    socket.on('typing',function () {
+        socket.broadcast.emit('typing',users[socket.id])
+    });
+    socket.on('keyup',function () {
+        socket.broadcast.emit('keyup')
+    });
+
+    socket.on('send',function (message) {
+        socket.broadcast.emit('send',{
+            username : users[socket.id],
+            message : message,
+            userimage : userimage,
+
+        })
+        socket.emit('psend',{
+            username : users[socket.id],
+            message : message,
+            userimage : userimage,
+
+        })
+    })
+    //console.log(users)
+    socket.on('disconnect',function () {
+
+
+        //console.log(users)
+        usernum--;
+
+        socket.broadcast.emit('gone',{
+            usernum : usernum,
+            username : users[socket.id]
+        })
+
+        delete users[socket.id];
+        socket.broadcast.emit('keyup')
+       // console.log(usernum)
+        //console.log(users)
+        console.log('user disconnected');
+
+    })
+})
+
+// app.get('/talk/chat',function (req,res) {
+//     if(req.user == undefined){
+//         res.redirect('/talk')
+//     }else {
+//
+//              console.log('startfromhere')
+//             io.on('connection',function (socket) {
+//                 console.log('a new user connected');
+//                 users[socket.id] = req.user.local.firstName != undefined ? req.user.local.firstName : req.user.google.name != undefined ? req.user.google.name : req.user.facebook.name;
+//                 usernum++;
+//                 console.log(users)
+//                 console.log(usernum)
+//                 socket.emit('initial',{data : usernum})
+//                 socket.broadcast.emit('connected',{username : users[socket.id]})
+//                 //console.log(users)
+//                 socket.on('disconnect',function () {
+//
+//                     delete users[socket.id];
+//                     console.log(users)
+//                     usernum--;
+//                     console.log(usernum)
+//                     //console.log(users)
+//                     console.log('user disconnected')
+//                 })
+//             })
+//
+//
+//         }
+//
+// })
+
+
+
 //local login-signup
 app.post('/signup',passport.authenticate('local-signup',{
     successRedirect : '/',
@@ -609,6 +756,26 @@ app.post('/login',passport.authenticate('local-login',{
     failureRedirect: '/login',
     failureFlash: true
 }));
+
+
+//like review
+app.post('/likerev',function(req,res){
+    Review.findById(req.body.revid,function(err,rev){
+         
+         console.log(req.body.userid);
+        
+         if(rev.revlikeMap.indexOf(req.body.userid) == -1){
+            rev.likes++;
+            rev.revlikeMap.push(req.body.userid);
+         }else{
+             rev.likes--;
+             let index = rev.revlikeMap.indexOf(req.body.userid) ;
+             rev.revlikeMap.splice(index,1);
+         }
+         rev.save();
+         console.log(rev);
+    })
+})
 
 //facebook login-signup
 
@@ -625,6 +792,7 @@ app.get('/auth/facebook/callback',
 
 app.get('/auth/google',passport.authenticate('google',{scope : ['https://www.googleapis.com/auth/plus.login','profile','email']}));
 app.get('/auth/google/callback',
+
     passport.authenticate('google',{
 
         successRedirect : '/',
@@ -652,6 +820,9 @@ function IsAuthenticatedReview(req, res, next) {
                 res.redirect("back");
             } else {
                 console.log(foundreview)
+                console.log(req.user._id);
+
+                console.log(foundreview.Author.id.equals(req.user._id));
                 if (foundreview.Author.id.equals(req.user._id)) {
                     next();
                 } else {
@@ -675,6 +846,6 @@ function isLoggedIn(req,res,next) {
 }
 
 
-app.listen(3000,function () {
+http.listen(3000,function () {
     console.log('Server Started On Port 3000');
 })

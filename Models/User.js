@@ -6,6 +6,7 @@ var userSchema = mongoose.Schema({
      reviews : Number,
      joinedDate : String,
      photos : Number,
+     chatuid : String,
 
     local : {
         firstName : String,

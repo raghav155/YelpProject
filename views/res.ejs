@@ -34,7 +34,7 @@
                     <div style="text-transform: capitalize;padding: 7px;background-color: #ba1e2b;color: white;"  class="ui button">
                         <img style="display: inline;"  width="25px" height="25px" class="ui image centered circular" src=" <%= user.google.name == undefined ? user.userimage == '' ? "./images/male.png" : "./images/uploads/" + user.userimage : user.userimage%>">
                         <div style="display: inline;">
-                            &nbsp;<%= user.google.name == undefined ? user.local.firstName : user.google.name.split(' ')[0] %>
+                            &nbsp;<%= user.google.name == undefined ? (user.local.firstName == undefined ? user.facebook.name.split(' ')[0] : user.local.firstName) : user.google.name.split(' ')[0] %>
                         </div>
                     </div>
                     <div id="userbtn" style="background-color: #ba1e2b;color: white;" class="ui floating dropdown icon button">
@@ -268,11 +268,11 @@
 
                         <%rs.ReviewsSec.forEach(function (review) {%>
 
-                           <div style="padding: 20px;background-color: white;margin-bottom: 10px;border-top-left-radius: 5px;border-top-right-radius: 5px">
+                           <div  style="padding: 20px;background-color: white;margin-bottom: 10px;border-top-left-radius: 5px;border-top-right-radius: 5px">
                                <div id="revheader" class="ui grid">
                                    <div class="two wide column">
-
-                                       <img width="70px" class="ui image circular" src="<%= review.Author.islocal == true ? "../images/uploads/" + review.Author.image : review.Author.image%>" alt="">
+                                       <% console.log(review.Author.image)%>
+                                       <img width="70px" class="ui image circular" src="<%= review.Author.islocal == true ? (review.Author.image == '' ? "./images/male.png" : "./images/uploads/" +  review.Author.image) : review.Author.image%>" alt="">
                                    </div>
 
                                    <div class="fourteen wide column">
@@ -286,73 +286,102 @@
                                <div>
 
                                    <% if(user && review.Author.id.toString() === user._id.toString()){%>
-                                   <div style="float: left;" class="ui labeled button likebtn" tabindex="0">
-                                       <div class="ui button">
+                                   
+                                   <div class="ui labeled button " tabindex="0">
+                                     <% var isliked = false %>
+                                     <% if(review.revlikeMap.indexOf(user._id) != -1 ){ %>
+                                       <% isliked = true;  } %>
+                                       <% console.log(isliked) %>
+                                     <% if(isliked == true){ %>
+                                       <div revid="<%= review._id%>" userid= "<%= user._id%>" isliked = "true" class="ui button likebtn">
+                                       <%} else{ %>
+                                       <div revid="<%= review._id%>" userid= "<%= user._id%>" isliked = "false" class="ui button likebtn">
+                                       <% }%>
+                                     
+                                     <% if(review.revlikeMap.indexOf(user._id) != -1 ){  %>
+                                           <i style="color:red" class="heart icon"></i> Like
+                                           <%}else{%>
                                            <i class="heart icon"></i> Like
+                                           <%}%>
                                        </div>
                                        <a class="ui basic label">
                                            <%= review.likes%>
                                        </a>
                                    </div>
-                                   <div style="float: right" class=" ui buttons">
-                                       <a href="#ex1" class="ui button editbtn">Edit</a>
-                                       <a class="ui button deletebtn">Delete</a>
+
+                                   <div  style="float: right" class=" ui buttons">
+                                       <a revid="<%= review._id%>"  href="#ex1" class="ui button editbtn">Edit</a>
+                                       <a revid="<%= review._id%>" resid="<%= rs._id%>" class="ui button deletebtn">Delete</a>
                                    </div>
                                    <div style="clear: both"></div>
                                    <%}else{%>
 
-                                   <div class="ui labeled button likebtn" tabindex="0">
-                                       <div class="ui button">
+                                   <div class="ui labeled button " tabindex="0">
+                                     <% if(user){ %>
+                                     <% if(review.revlikeMap.indexOf(user._id) != -1 ){  %>
+                                     <% var isliked = true;  }else{%>
+                                     <% isliked = false }%>
+                                       <div revid="<%= review._id%>" userid= "<%= user._id%>" isliked = "<%=isliked %>" class="ui button likebtn">
+                                        <% if(review.revlikeMap.indexOf(user._id) != -1 ){  %>
+                                           <i style="color:red" class="heart icon"></i> Like
+                                           <%}else{%>
                                            <i class="heart icon"></i> Like
+                                           <%}%>
+                                     <%}else{%>  
+                                       <div revid="<%= review._id%>"  class="ui button likebtn">
+                                       <i class="heart icon"></i> Like
+                                     <%}%>
+                                          
                                        </div>
                                        <a class="ui basic label">
                                            <%= review.likes%>
                                        </a>
                                    </div>
                                    <%}%>
-                                   <div id="ex3" style="display:none;">
 
-                                       <form style="display: inline;" action="./<%= review._id%>/<%= rs._id%>/deleterev" method="post">
-                                           <h4>Are you sure to delete this review.</h4>
-
-                                           <button type="submit" class="ui primary button">
-                                               Confirm
-                                           </button>
-                                       </form>
-
-
-                                       <a  rel="modal:close" id="disbtn2" class="ui button">
-                                           Discard
-                                       </a>
-
-                                   </div>
-
-                                   <div id="ex1" style="display:none;">
-
-                                       <form style="display: inline;" action="./<%= review._id%>/editrev" method="post">
-                                       <div style="margin-bottom: 20px" class="ui form">
-                                           <div class="field">
-                                               <label>Edit Review</label>
-                                               <textarea name="editcontent" id="textrev"></textarea>
-                                           </div>
-
-                                       </div>
-                                       <button type="submit" class="ui primary button">
-                                           Save
-                                       </button>
-                                       </form>
-
-
-                                       <a  rel="modal:close" id="disbtn" class="ui button">
-                                           Discard
-                                       </a>
-
-                                   </div>
                                </div>
                            </div>
 
 
                         <%})%>
+                            <div id="ex3" style="display:none;">
+
+                                <form style="display: inline;"  method="post">
+                                    <h4>Are you sure to delete this review.</h4>
+
+                                    <button type="submit" class="ui primary button">
+                                        Confirm
+                                    </button>
+                                </form>
+
+
+                                <a  rel="modal:close" id="disbtn2" class="ui button">
+                                    Discard
+                                </a>
+
+                            </div>
+
+                            <div id="ex1" style="display:none;">
+
+                                <form style="display: inline;"  method="post">
+                                    <div style="margin-bottom: 20px" class="ui form">
+                                        <div class="field">
+                                            <label>Edit Review</label>
+                                            <textarea name="editcontent" id="textrev"></textarea>
+                                        </div>
+
+                                    </div>
+                                    <button type="submit" class="ui primary button">
+                                        Save
+                                    </button>
+                                </form>
+
+
+                                <a  rel="modal:close" id="disbtn" class="ui button">
+                                    Discard
+                                </a>
+
+                            </div>
 
                         </div>
 
@@ -450,10 +479,7 @@
         $('#addreview').click();
     })
 
-    $('.likebtn').on('click',function () {
-
-        console.log('hii')
-    })
+    
 
 //    $('#editbtn').animatedModal();
     $('.editbtn').on('click',function () {
@@ -483,9 +509,10 @@
                 $('#menubar').css('display','flex');
 
         })
-        $('#discardbtn').on('click',function () {
-            $('#menubar').css('display','flex');
-        });
+        
+        let revid = $(this).attr('revid');
+        //console.log(resid)
+        $('#ex1 form').attr('action','/biz/'+revid+ "/editrev");
 
 
 //          console.log(document.getElementById('textrev').value)
@@ -575,6 +602,12 @@
             }
         })
 
+        $('#discardbtn').on('click',function () {
+            console.log('hii')
+            $('#menubar').css('display','flex');
+        });
+
+
 
     });
 
@@ -586,9 +619,68 @@
             showClose: false
         })
         $('#menubar').css('display','none');
+        //console.log(this)
+        let revid = $(this).attr('revid');
+        let resid = $(this).attr('resid');
+        //console.log(resid)
+        $('#ex3 form').attr('action','/biz/'+revid+"/" + resid + "/deleterev");
     });
 
     $('#userbtn').dropdown();
+
+    $('.likebtn').click(function(){
+        let userid = $(this).attr('userid')
+        let revid =  $(this).attr('revid')
+        let likebtn = $(this)
+        let sibling = $(this).siblings()[0];
+        let text = $(sibling).text()
+        
+    
+
+        if(userid != undefined){
+
+       let pr =  new Promise(function(resolve,reject){
+
+       $.ajax({
+                url : '/likerev',
+                type : 'POST',
+                data : {
+                    userid : userid,
+                    revid : revid
+                },
+            })
+
+            resolve();
+       }).then(function(){
+           //let islikedb = $(this);
+           let islikedb = likebtn.attr('isliked');
+           let child = likebtn.children()[0];
+           //console.log(child)
+           if(islikedb === 'false'){
+               $(child).css('color','red');
+               likebtn.attr('isliked','true');
+
+               //increase like by 1
+               $(sibling).text(+text + 1);
+           }else{
+               $(child).css('color','#747576');
+               likebtn.attr('isliked','false');
+
+               //decrease like by 1
+               $(sibling).text(+text - 1);
+           }
+    
+       }).catch(function(){
+           console.log('error occurred');
+       })
+            
+        }else{
+            console.log('hii')
+            window.location = '/login';
+        }
+    })
+
+   
 
 
 
