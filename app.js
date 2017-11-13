@@ -648,7 +648,7 @@ io.on('connection',function (socket) {
     console.log(socket.handshake.query)
     var curuser = socket.handshake.query.user;
     var userimage = socket.handshake.query.userimage;
-   
+
     console.log('a new user connected');
     if(curuser) {
         users[socket.id] = curuser;
